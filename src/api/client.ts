@@ -2,7 +2,7 @@ import { newIdempotencyKey } from './idempotency';
 import type { TicketStatus } from '../state/tickets';
 
 /**
- * Thin fetch wrapper for the Otueke API.
+ * Thin fetch wrapper for the 007 Resort & Spa API.
  *
  * The API is authoritative: it validates every status transition and records
  * the staff member and timestamps. This client only transports requests.
@@ -68,7 +68,7 @@ export class ApiClient {
   /**
    * Requests a ticket status transition. The API decides whether it is
    * allowed. Endpoint path is a placeholder until the contract is published
-   * in otueke-docs.
+   * in 007resort-docs.
    */
   requestTransition(ticketId: string, to: TicketStatus): Promise<void> {
     return this.request('POST', `/kds/tickets/${encodeURIComponent(ticketId)}/transitions`, {

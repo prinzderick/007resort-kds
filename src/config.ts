@@ -1,7 +1,7 @@
 /**
  * Kiosk configuration, read from Vite env variables at build time.
  *
- * - VITE_OTUEKE_API_BASE_URL: base URL of the Otueke API (no `/api/v1`).
+ * - VITE_R007_API_BASE_URL: base URL of the 007 Resort & Spa API (no `/api/v1`).
  * - VITE_KDS_STATION_CODE: which KDS station this screen is, e.g. MAIN_KITCHEN.
  *
  * These values are compiled into the bundle and are NOT secret.
@@ -25,14 +25,14 @@ export interface KdsConfig {
 }
 
 export interface KdsEnv {
-  readonly VITE_OTUEKE_API_BASE_URL?: string | undefined;
+  readonly VITE_R007_API_BASE_URL?: string | undefined;
   readonly VITE_KDS_STATION_CODE?: string | undefined;
 }
 
 const STATION_CODE_PATTERN = /^[A-Z][A-Z0-9_]{1,63}$/;
 
 export function parseConfig(env: KdsEnv): KdsConfig {
-  const rawUrl = env.VITE_OTUEKE_API_BASE_URL?.trim();
+  const rawUrl = env.VITE_R007_API_BASE_URL?.trim();
   const apiBaseUrl = (
     rawUrl !== undefined && rawUrl !== '' ? rawUrl : DEFAULT_API_BASE_URL
   ).replace(/\/+$/, '');

@@ -1,20 +1,20 @@
-# otueke-kds
+# 007resort-kds
 
-Kitchen Display System (KDS) / dispensing client for the **Otueke Integrated
+Kitchen Display System (KDS) / dispensing client for the **007 Resort & Spa Integrated
 Facility Operations Platform**.
 
 > Status: **Phase 0 - scaffolding only.** The board renders a placeholder;
 > real-time wiring and actions arrive in Phase 1.
 
 Architecture, API contracts and decisions live in
-[prinzderick/otueke-docs](https://github.com/prinzderick/otueke-docs).
+[prinzderick/007resort-docs](https://github.com/prinzderick/007resort-docs).
 
 ## Decision (pending architecture review)
 
 A **browser-based kiosk client** built with **Vite + TypeScript (strict)** and
 **no UI framework**, running full-screen on each KDS station. Real-time updates
-come from a **SignalR** hub on the Otueke API (`@microsoft/signalr`). This
-choice is provisional until the architecture review is recorded in otueke-docs.
+come from a **SignalR** hub on the 007 Resort & Spa API (`@microsoft/signalr`). This
+choice is provisional until the architecture review is recorded in 007resort-docs.
 
 ## Stations
 
@@ -85,7 +85,7 @@ build on Node 24, plus a gitleaks secret scan.
 
 | Variable                   | Default                 | Description                           |
 | -------------------------- | ----------------------- | ------------------------------------- |
-| `VITE_OTUEKE_API_BASE_URL` | `http://localhost:5080` | Otueke API base URL (no `/api/v1`).   |
+| `VITE_R007_API_BASE_URL` | `http://localhost:5080` | 007 Resort & Spa API base URL (no `/api/v1`).   |
 | `VITE_KDS_STATION_CODE`    | _(empty)_               | Station code; empty = not configured. |
 
 `VITE_*` values are compiled into the bundle - **never put secrets in them**.

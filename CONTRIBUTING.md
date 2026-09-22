@@ -1,4 +1,4 @@
-# Contributing to otueke-kds
+# Contributing to 007resort-kds
 
 ## Branches
 
@@ -45,5 +45,5 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
   rules; `npm run lint` must pass with zero warnings.
 - Prettier: `npm run format`.
 - No UI framework or new runtime dependency without an agreed decision in
-  otueke-docs.
+  007resort-docs.
 - Add or update vitest tests with every change.

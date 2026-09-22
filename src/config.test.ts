@@ -9,7 +9,7 @@ describe('parseConfig', () => {
   it('reads and normalises values', () => {
     expect(
       parseConfig({
-        VITE_OTUEKE_API_BASE_URL: ' http://192.168.10.5:5080/ ',
+        VITE_R007_API_BASE_URL: ' http://192.168.10.5:5080/ ',
         VITE_KDS_STATION_CODE: 'pool_bar',
       }),
     ).toEqual({ apiBaseUrl: 'http://192.168.10.5:5080', stationCode: 'POOL_BAR' });
@@ -21,6 +21,6 @@ describe('parseConfig', () => {
   });
 
   it('throws on an invalid API URL', () => {
-    expect(() => parseConfig({ VITE_OTUEKE_API_BASE_URL: 'not a url' })).toThrow();
+    expect(() => parseConfig({ VITE_R007_API_BASE_URL: 'not a url' })).toThrow();
   });
 });

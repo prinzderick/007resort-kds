@@ -1,5 +1,5 @@
 {
-  "name": "otueke-kds",
+  "name": "007resort-kds",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -28,7 +28,7 @@
   "dependencies": {
     "@microsoft/signalr": "^10.0.11"
   },
-  "description": "Otueke Kitchen Display System (KDS) kiosk client - thin client of the Otueke API",
+  "description": "007 Resort & Spa Kitchen Display System (KDS) kiosk client - thin client of the 007 Resort & Spa API",
   "engines": {
     "node": ">=24"
   }

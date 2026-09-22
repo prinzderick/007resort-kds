@@ -46,10 +46,10 @@ describe('ApiClient', () => {
   });
 
   it('does not send an Idempotency-Key on GET', async () => {
-    const fetchFn = mockFetch(200, { name: 'Otueke API' });
+    const fetchFn = mockFetch(200, { name: '007 Resort & Spa API' });
     const client = new ApiClient({ baseUrl: 'http://api.test', fetch: fetchFn });
 
-    await expect(client.getSystemInfo()).resolves.toEqual({ name: 'Otueke API' });
+    await expect(client.getSystemInfo()).resolves.toEqual({ name: '007 Resort & Spa API' });
     expect(fetchFn.mock.calls[0]?.[0]).toBe('http://api.test/api/v1/system/info');
     expect(headersOf(fetchFn)['Idempotency-Key']).toBeUndefined();
   });

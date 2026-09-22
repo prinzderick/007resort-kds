@@ -10,4 +10,4 @@ const config = loadConfig();
 renderBoard(root, config, emptyBoard);
 
 // Phase 0: real-time wiring (createKdsHubConnection + applyEvent) is added in
-// Phase 1 once the hub contract is published in otueke-docs.
+// Phase 1 once the hub contract is published in 007resort-docs.

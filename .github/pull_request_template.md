@@ -1,6 +1,6 @@
 ## Summary
 
-<!-- What does this PR change and why? Link the issue / otueke-docs spec. -->
+<!-- What does this PR change and why? Link the issue / 007resort-docs spec. -->
 
 ## Type
 
