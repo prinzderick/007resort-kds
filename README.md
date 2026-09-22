@@ -83,10 +83,10 @@ build on Node 24, plus a gitleaks secret scan.
 
 ## Configuration
 
-| Variable                   | Default                 | Description                           |
-| -------------------------- | ----------------------- | ------------------------------------- |
-| `VITE_R007_API_BASE_URL` | `http://localhost:5080` | 007 Resort & Spa API base URL (no `/api/v1`).   |
-| `VITE_KDS_STATION_CODE`    | _(empty)_               | Station code; empty = not configured. |
+| Variable                 | Default                 | Description                                   |
+| ------------------------ | ----------------------- | --------------------------------------------- |
+| `VITE_R007_API_BASE_URL` | `http://localhost:5080` | 007 Resort & Spa API base URL (no `/api/v1`). |
+| `VITE_KDS_STATION_CODE`  | _(empty)_               | Station code; empty = not configured.         |
 
 `VITE_*` values are compiled into the bundle - **never put secrets in them**.
 Kiosk authentication (device credentials / tokens) is issued by the API and is
