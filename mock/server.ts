@@ -20,7 +20,8 @@ import { STAFF, STATIONS, mulberry32, pick, type MockStation } from './data.ts';
  * Admin : /mock/* (create ticket, drop sockets, outage, expire tokens, device command, reset).
  *
  * Demo credentials: registration code KDS-1234 (reusable in the mock); PIN 1234 (Chef Ada, may
- * transition), PIN 5678 (Trainee Tunde, view only), NFC card 04A1B2C3, password `kds` / `kds-pass`.
+ * transition), PIN 5678 (Trainee Tunde, view only), NFC card 04A1B2C3 (+ Ada's PIN 1234), password `kds` /
+ * `kds-pass`. Like the real node, PIN and card logins must send an `identifier` (staff no. / card uid).
  */
 
 /** Ladder plus the two skips the contract allows (NEW->IN_PROGRESS, ACCEPTED->READY). */
@@ -347,8 +348,12 @@ export async function createMockServer(options: MockOptions = {}): Promise<MockS
       '1234': { name: 'Chef Ada', id: 'staff-ada', perms: CAN_BUMP },
       '5678': { name: 'Trainee Tunde', id: 'staff-tunde', perms: VIEW_ONLY },
     },
-    NFC_CARD: { '04A1B2C3': { name: 'Chef Ada', id: 'staff-ada', perms: CAN_BUMP } },
     PASSWORD: { 'kds:kds-pass': { name: 'KDS Supervisor', id: 'staff-sup', perms: CAN_BUMP } },
+  };
+
+  /** Card uid -> staff (the PIN of that same person is required as the secret). */
+  const CARDS: Record<string, { name: string; id: string; perms: string[] }> = {
+    '04A1B2C3': PEOPLE.PIN?.['1234'] as { name: string; id: string; perms: string[] },
   };
 
   function issue(who: { name: string; id: string; perms: string[] }): Record<string, unknown> {
@@ -440,11 +445,23 @@ export async function createMockServer(options: MockOptions = {}): Promise<MockS
         problem(res, 403, 'device_not_registered', 'PIN and card login need a registered device');
         return;
       }
-      const k =
-        b.credentialType === 'PASSWORD'
-          ? `${b.identifier ?? ''}:${b.secret ?? ''}`
-          : (b.secret ?? '');
-      const who = PEOPLE[b.credentialType ?? '']?.[k];
+      if (b.credentialType !== 'PASSWORD' && (b.identifier ?? '') === '') {
+        // Like the real node: a bare PIN / bare card is never accepted.
+        problem(res, 422, 'validation_failed', 'The identifier field is required.');
+        return;
+      }
+      let who: { name: string; id: string; perms: string[] } | undefined;
+      if (b.credentialType === 'NFC_CARD') {
+        // Real node: identifier = card uid, secret = that staff member's PIN.
+        const owner = CARDS[b.identifier ?? ''];
+        who = owner !== undefined && PEOPLE.PIN?.[b.secret ?? ''] === owner ? owner : undefined;
+      } else {
+        const k =
+          b.credentialType === 'PASSWORD'
+            ? `${b.identifier ?? ''}:${b.secret ?? ''}`
+            : (b.secret ?? '');
+        who = PEOPLE[b.credentialType ?? '']?.[k];
+      }
       if (who === undefined) {
         problem(res, 401, 'invalid_credentials', 'Invalid credentials');
         return;

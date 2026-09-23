@@ -30,7 +30,10 @@ beforeAll(async () => {
   device = reg.deviceToken;
   const login = await call(
     '/auth/staff/login',
-    { method: 'POST', body: JSON.stringify({ credentialType: 'PIN', secret: '1234' }) },
+    {
+      method: 'POST',
+      body: JSON.stringify({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' }),
+    },
     false,
   );
   token = ((await login.json()) as { accessToken: string }).accessToken;
@@ -49,12 +52,15 @@ describe('mock server contract behaviour', () => {
   it('requires a registered device for PIN login and rejects bad credentials', async () => {
     const noDevice = await fetch(`${mock.url}/api/v1/auth/staff/login`, {
       method: 'POST',
-      body: JSON.stringify({ credentialType: 'PIN', secret: '1234' }),
+      body: JSON.stringify({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' }),
     });
     expect(noDevice.status).toBe(403);
     const bad = await call(
       '/auth/staff/login',
-      { method: 'POST', body: JSON.stringify({ credentialType: 'PIN', secret: '0000' }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({ credentialType: 'PIN', identifier: 'S-0004', secret: '0000' }),
+      },
       false,
     );
     expect(bad.status).toBe(401);
@@ -126,7 +132,10 @@ describe('mock server contract behaviour', () => {
   it('view-only staff cannot transition', async () => {
     const l = await call(
       '/auth/staff/login',
-      { method: 'POST', body: JSON.stringify({ credentialType: 'PIN', secret: '5678' }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({ credentialType: 'PIN', identifier: 'S-0004', secret: '5678' }),
+      },
       false,
     );
     const viewer = ((await l.json()) as { accessToken: string }).accessToken;
@@ -141,7 +150,10 @@ describe('mock server contract behaviour', () => {
   it('refresh tokens are single-use', async () => {
     const l = await call(
       '/auth/staff/login',
-      { method: 'POST', body: JSON.stringify({ credentialType: 'PIN', secret: '1234' }) },
+      {
+        method: 'POST',
+        body: JSON.stringify({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' }),
+      },
       false,
     );
     const { refreshToken } = (await l.json()) as { refreshToken: string };

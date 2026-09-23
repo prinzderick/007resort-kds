@@ -28,7 +28,7 @@ async function signedIn(h: Harness, tickets: Ticket[] = [ticket({ id: 'a' })]): 
   h.api.listTickets.mockResolvedValue(tickets);
   const app = new KdsApp(h.deps);
   app.boot();
-  await app.login({ credentialType: 'PIN', secret: '1234' });
+  await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' });
   app.chooseStation({ ...STATION });
   h.rt.handlers.onState('online');
   h.rt.handlers.onSubscribed();
@@ -76,7 +76,9 @@ describe('login and idle lock', () => {
     const h = harness();
     const app = new KdsApp(h.deps);
     app.boot();
-    expect(await app.login({ credentialType: 'PIN', secret: '1234' })).toBe(true);
+    expect(await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' })).toBe(
+      true,
+    );
     expect(app.getState().auth).toBe('active');
     expect(app.getState().staffName).toBe('Chef Ada');
     await flush();
@@ -92,7 +94,7 @@ describe('login and idle lock', () => {
     const app2 = new KdsApp(h2.deps);
     app2.boot();
     expect(app2.getState().station?.id).toBe('st-1');
-    await app2.login({ credentialType: 'NFC_CARD', secret: '04A1B2C3' });
+    await app2.login({ credentialType: 'NFC_CARD', identifier: '04A1B2C3', secret: '1234' });
     expect(h2.rt.start).toHaveBeenCalledWith('st-1', 'dev-1');
     expect(h2.api.listStations).not.toHaveBeenCalled();
   });
@@ -101,7 +103,9 @@ describe('login and idle lock', () => {
     const h = harness();
     h.api.login.mockRejectedValue(problem(401, 'invalid_credentials'));
     const app = new KdsApp(h.deps);
-    expect(await app.login({ credentialType: 'PIN', secret: '0000' })).toBe(false);
+    expect(await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '0000' })).toBe(
+      false,
+    );
     expect(app.getState()).toMatchObject({
       auth: 'signed-out',
       loginError: 'Not recognised. Try again.',
@@ -124,7 +128,7 @@ describe('login and idle lock', () => {
     expect(h.api.getTicket).not.toHaveBeenCalled();
 
     h.api.login.mockResolvedValue(session({ accessToken: 'tok-B', staffName: 'Bar Tunde' }));
-    await app.login({ credentialType: 'PIN', secret: '5678' });
+    await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '5678' });
     expect(app.getState()).toMatchObject({
       auth: 'active',
       staffName: 'Bar Tunde',

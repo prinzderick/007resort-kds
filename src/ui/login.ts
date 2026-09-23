@@ -3,8 +3,12 @@ import { WedgeScanner } from '../auth/wedge';
 import { h, setText } from './dom';
 
 /**
- * Staff sign-in sheet: on-screen PIN pad, keyboard-wedge NFC card taps, optional password form.
- * The API resolves the staff member from the credential; nothing is validated here.
+ * Staff sign-in sheet: who (staff number typed, or an NFC card tapped on a keyboard-wedge reader)
+ * plus an on-screen PIN pad, and an optional username/password form.
+ *
+ * The real API (see docs/REAL_API_TEST_REPORT.md) never signs anyone in from a bare PIN or a bare
+ * card: PIN login sends `{PIN, identifier: staff number/username, secret: pin}` and card login
+ * sends `{NFC_CARD, identifier: card uid, secret: the staff member's PIN}`. Nothing is validated here.
  */
 
 export interface LoginHandlers {
@@ -26,6 +30,8 @@ const MAX_PIN = 12;
 export class LoginSheet {
   readonly el: HTMLElement;
   private readonly dots: HTMLElement;
+  private readonly who: HTMLInputElement;
+  private readonly whoNote: HTMLElement;
   private readonly error: HTMLElement;
   private readonly cancel: HTMLButtonElement;
   private readonly pinPanel: HTMLElement;
@@ -34,6 +40,8 @@ export class LoginSheet {
   private readonly pass: HTMLInputElement;
   private readonly buttons: HTMLButtonElement[] = [];
   private pin = '';
+  /** Card UID from a wedge reader (card login); null when the staff number is used instead. */
+  private card: string | null = null;
   private open = false;
   private busy = false;
   private readonly wedge = new WedgeScanner();
@@ -84,10 +92,25 @@ export class LoginSheet {
         this.user.focus();
       },
     });
+    this.who = h('input', {
+      type: 'text',
+      class: 'login-who',
+      placeholder: 'Staff number, or tap your card',
+      autocomplete: 'off',
+      ariaLabel: 'Staff number',
+    });
+    this.who.setAttribute('inputmode', 'text');
+    this.who.addEventListener('input', () => {
+      if (this.card !== null && this.who.value !== '') this.setCard(null);
+      else if (this.card === null) setText(this.whoNote, '');
+    });
+    this.whoNote = h('p', { class: 'login-card-note', role: 'status' });
     this.pinPanel = h(
       'div',
       { class: 'login-panel' },
-      h('p', { class: 'login-hint', text: 'Tap your staff card or enter your PIN' }),
+      h('p', { class: 'login-hint', text: 'Staff number or card, then your PIN' }),
+      this.who,
+      this.whoNote,
       this.dots,
       pad,
       enter,
@@ -155,17 +178,26 @@ export class LoginSheet {
 
   private onKey(e: KeyboardEvent): void {
     if (!this.open || this.busy) return;
-    if (e.target instanceof HTMLInputElement) return; // typing in the password form
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const target = e.target;
+    if (target instanceof HTMLInputElement && target !== this.who) return; // password form
+    const inWho = target === this.who;
     const result = this.wedge.feed(e.key, this.clock());
     if (e.key === 'Enter') {
       e.preventDefault();
       if (result?.credentialType === 'NFC_CARD') {
+        // A card tap identifies the person; the PIN still has to be entered.
         this.setPin('');
-        this.handlers.onSubmit({ credentialType: 'NFC_CARD', secret: result.value });
+        this.who.value = '';
+        this.setCard(result.value);
+        if (inWho) this.who.blur();
+      } else if (inWho && this.pin === '') {
+        if (this.who.value.trim() !== '') this.who.blur(); // staff number entered -> PIN next
       } else {
         this.submitPin();
       }
+    } else if (inWho) {
+      return; // typing the staff number: the field owns the key
     } else if (e.key === 'Backspace') {
       this.setPin(this.pin.slice(0, -1));
     } else if (/^\d$/.test(e.key)) {
@@ -185,11 +217,30 @@ export class LoginSheet {
     setText(this.dots, '●'.repeat(this.pin.length));
   }
 
+  private setCard(uid: string | null): void {
+    this.card = uid;
+    setText(
+      this.whoNote,
+      uid === null ? '' : `Card read (\u2026${uid.slice(-4)}). Now enter your PIN.`,
+    );
+  }
+
   private submitPin(): void {
     if (this.busy || this.pin === '') return;
+    const staffNo = this.who.value.trim();
+    if (this.card === null && staffNo === '') {
+      this.setPin('');
+      setText(this.whoNote, 'Enter your staff number or tap your card first.');
+      this.who.focus();
+      return;
+    }
     const secret = this.pin;
     this.setPin('');
-    this.handlers.onSubmit({ credentialType: 'PIN', secret });
+    if (this.card !== null) {
+      this.handlers.onSubmit({ credentialType: 'NFC_CARD', identifier: this.card, secret });
+    } else {
+      this.handlers.onSubmit({ credentialType: 'PIN', identifier: staffNo, secret });
+    }
   }
 
   update(view: LoginView): void {
@@ -200,14 +251,20 @@ export class LoginSheet {
     this.cancel.hidden = view.required;
     setText(this.error, view.error ?? '');
     for (const b of this.buttons) b.disabled = view.busy;
+    this.who.disabled = view.busy;
     if (opening) {
       this.wedge.reset();
       this.setPin('');
+      this.setCard(null);
+      this.who.value = '';
       this.pinPanel.hidden = false;
       this.passPanel.hidden = true;
+      this.who.focus();
     }
     if (!view.open) {
       this.setPin('');
+      this.setCard(null);
+      this.who.value = '';
       this.pass.value = '';
     }
   }

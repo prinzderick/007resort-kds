@@ -40,7 +40,7 @@ describe('shell', () => {
   it('station setup: lists stations after sign-in and remembers the pick', async () => {
     const h = harness();
     const { root, app } = mount(h);
-    await app.login({ credentialType: 'PIN', secret: '1234' });
+    await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' });
     await flush();
     expect(q(root, '.setup')?.textContent).toContain('Which station is this screen?');
     q(root, '.station-btn')?.click();
@@ -55,7 +55,7 @@ describe('shell', () => {
     });
     h.api.listTickets.mockResolvedValue([ticket({ id: 'a', tableLabel: 'Table 4' })]);
     const { root, app } = mount(h);
-    await app.login({ credentialType: 'PIN', secret: '1234' });
+    await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' });
     h.rt.handlers.onState('online');
     h.rt.handlers.onSubscribed();
     await flush();
@@ -82,7 +82,7 @@ describe('shell', () => {
     });
     h.api.listTickets.mockResolvedValue([ticket({ id: 'a' })]);
     const { root, app } = mount(h);
-    await app.login({ credentialType: 'PIN', secret: '1234' });
+    await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' });
     h.rt.handlers.onState('online');
     h.rt.handlers.onSubscribed();
     await flush();
@@ -100,7 +100,7 @@ describe('shell', () => {
       s.setStation({ ...STATION });
     });
     const { root, app } = mount(h);
-    await app.login({ credentialType: 'PIN', secret: '1234' });
+    await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' });
     h.rt.handlers.onState('online');
     h.rt.handlers.onSubscribed();
     h.rt.handlers.onSiteHealth?.('DEGRADED');

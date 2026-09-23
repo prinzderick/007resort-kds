@@ -58,7 +58,9 @@ function makeApp(): { app: KdsApp; realtime: { states: string[] } } {
 
 async function signInToFirstStation(app: KdsApp): Promise<void> {
   expect(await app.registerDevice('Test KDS', 'KDS-1234')).toBe(true);
-  expect(await app.login({ credentialType: 'PIN', secret: '1234' })).toBe(true);
+  expect(await app.login({ credentialType: 'PIN', identifier: 'S-0004', secret: '1234' })).toBe(
+    true,
+  );
   await until(() => (app.getState().stations?.length ?? 0) > 0, 'stations');
   app.chooseStation(app.getState().stations![0]!);
   await until(() => app.getState().connection === 'online' && app.getState().synced, 'live board');

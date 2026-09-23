@@ -151,6 +151,22 @@ describe('KdsRealtime subscriptions', () => {
     expect(handlers.onDeviceCommand).toHaveBeenCalledWith('LOCK');
   });
 
+  it('ignores the cloudLink check: a Local kitchen is fine without the cloud', () => {
+    const { echo, rt, handlers } = setup();
+    rt.start('st-1');
+    const fire = (id: string, checks: Record<string, string>, status = 'DEGRADED') =>
+      echo.channels.get('site.status')?.listeners.get('.site.health')?.({
+        eventId: id,
+        data: { status, checks },
+      });
+    fire('h1', { database: 'ok', redis: 'ok', queue: 'ok', cloudLink: 'down' });
+    fire('h2', { database: 'ok', redis: 'degraded', queue: 'ok', cloudLink: 'ok' });
+    fire('h3', { database: 'down', redis: 'ok', cloudLink: 'ok' }, 'OFFLINE');
+    expect(handlers.onSiteHealth).toHaveBeenNthCalledWith(1, 'ONLINE');
+    expect(handlers.onSiteHealth).toHaveBeenNthCalledWith(2, 'DEGRADED');
+    expect(handlers.onSiteHealth).toHaveBeenNthCalledWith(3, 'OFFLINE');
+  });
+
   it('reports auth-error when the API refuses the channel', () => {
     const { echo, rt, states } = setup();
     rt.start('st-1');

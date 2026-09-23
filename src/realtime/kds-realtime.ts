@@ -292,10 +292,25 @@ export class KdsRealtime {
   }
 }
 
-function healthStatusOf(payload: unknown): SiteStatus | null {
-  const data = (payload as { data?: { status?: unknown } } | null)?.data;
+/**
+ * Effective health for a kitchen screen. The node reports `cloudLink` (the Local<->Cloud sync
+ * peer) inside `checks`; a kitchen keeps working without the cloud, so that check must not raise
+ * the "server degraded" banner. Only local checks (database, redis, queue, ...) count. Without a
+ * `checks` map the reported `status` is used as is.
+ */
+export function healthStatusOf(payload: unknown): SiteStatus | null {
+  const data = (payload as { data?: { status?: unknown; checks?: unknown } } | null)?.data;
   const status = data?.status;
-  return status === 'ONLINE' || status === 'DEGRADED' || status === 'OFFLINE' ? status : null;
+  if (status !== 'ONLINE' && status !== 'DEGRADED' && status !== 'OFFLINE') return null;
+  const checks = data?.checks;
+  if (typeof checks !== 'object' || checks === null || Array.isArray(checks)) return status;
+  const local = Object.entries(checks as Record<string, unknown>).filter(
+    ([k]) => k !== 'cloudLink',
+  );
+  if (local.length === 0) return status;
+  if (local.some(([, v]) => v === 'down')) return 'OFFLINE';
+  if (local.some(([, v]) => v !== 'ok')) return 'DEGRADED';
+  return 'ONLINE';
 }
 
 function commandOf(payload: unknown): DeviceCommandName | null {

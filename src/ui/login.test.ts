@@ -33,12 +33,27 @@ describe('LoginSheet', () => {
     expect(sheet.el.hidden).toBe(true);
   });
 
-  it('submits a PIN typed on the on-screen pad (masked)', () => {
+  const who = (sh: LoginSheet) => sh.el.querySelector<HTMLInputElement>('.login-who')!;
+
+  it('submits staff number + PIN typed on the on-screen pad (masked)', () => {
+    who(sheet).value = 'S-0004';
     for (const k of ['4', '8', '2', '1']) pad(sheet, k).click();
-    expect(sheet.el.querySelector('.pin-dots')?.textContent).toBe('●●●●');
+    expect(sheet.el.querySelector('.pin-dots')?.textContent).toBe('\u25cf\u25cf\u25cf\u25cf');
     sheet.el.querySelector<HTMLButtonElement>('.btn.primary')!.click();
-    expect(onSubmit).toHaveBeenCalledWith({ credentialType: 'PIN', secret: '4821' });
+    expect(onSubmit).toHaveBeenCalledWith({
+      credentialType: 'PIN',
+      identifier: 'S-0004',
+      secret: '4821',
+    });
     expect(sheet.el.querySelector('.pin-dots')?.textContent).toBe(''); // cleared after submit
+    expect(who(sheet).value).toBe('S-0004'); // kept so a mistyped PIN can be retried
+  });
+
+  it('a PIN without a staff number or card is not sent (the API would refuse it)', () => {
+    for (const k of ['1', '2', '3', '4']) pad(sheet, k).click();
+    sheet.el.querySelector<HTMLButtonElement>('.btn.primary')!.click();
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(sheet.el.querySelector('.login-card-note')?.textContent).toMatch(/staff number/);
   });
 
   it('backspace and clear edit the entry', () => {
@@ -50,24 +65,54 @@ describe('LoginSheet', () => {
     expect(sheet.el.querySelector('.pin-dots')?.textContent).toBe('');
   });
 
-  it('an NFC reader acting as a keyboard wedge signs in with NFC_CARD', () => {
+  it('an NFC reader (keyboard wedge) identifies the person; the PIN is still required', () => {
     let t = 100;
     for (const ch of '04A1B2C3') {
       key(ch, t);
       t += 6; // reader types ~6 ms per character
     }
     key('Enter', t);
-    expect(onSubmit).toHaveBeenCalledWith({ credentialType: 'NFC_CARD', secret: '04A1B2C3' });
+    expect(onSubmit).not.toHaveBeenCalled(); // the card alone never signs in
+    expect(sheet.el.querySelector('.login-card-note')?.textContent).toMatch(/Card read/);
+    for (const k of ['1', '2', '3', '4']) pad(sheet, k).click();
+    sheet.el.querySelector<HTMLButtonElement>('.btn.primary')!.click();
+    expect(onSubmit).toHaveBeenCalledWith({
+      credentialType: 'NFC_CARD',
+      identifier: '04A1B2C3',
+      secret: '1234',
+    });
   });
 
-  it('a physical keyboard PIN (slow digits + Enter) signs in with PIN', () => {
+  it('a card tapped while the staff-number field has focus is read as a card, not typed text', () => {
+    const input = who(sheet);
+    let t = 100;
+    for (const ch of '04A1B2C3') {
+      clock = t;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: ch, bubbles: true }));
+      input.value += ch;
+      t += 6;
+    }
+    clock = t;
+    input.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    );
+    expect(input.value).toBe('');
+    expect(sheet.el.querySelector('.login-card-note')?.textContent).toMatch(/Card read/);
+  });
+
+  it('a physical keyboard PIN (slow digits + Enter) signs in with the typed staff number', () => {
+    who(sheet).value = 'kitchen1';
     let t = 100;
     for (const ch of '1234') {
       key(ch, t);
       t += 300;
     }
     key('Enter', t);
-    expect(onSubmit).toHaveBeenCalledWith({ credentialType: 'PIN', secret: '1234' });
+    expect(onSubmit).toHaveBeenCalledWith({
+      credentialType: 'PIN',
+      identifier: 'kitchen1',
+      secret: '1234',
+    });
   });
 
   it('ignores key input while closed or busy', () => {
