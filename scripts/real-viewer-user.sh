@@ -11,6 +11,7 @@ INSERT IGNORE INTO role (public_id, code, name, description) VALUES (UNHEX(REPLA
 INSERT IGNORE INTO role_permission (role_id, permission_id, requires_approval)
   SELECT r.id, p.id, 0 FROM role r JOIN permission p ON p.code='prep_ticket.view' WHERE r.code='KDS_VIEWER';"
 KT=r7d_dev_pos_reception_1
+KDS_DEV_TOKEN=r7d_dev_kds_main_kitchen  # deterministic DEV-ONLY seed token (work/LOCAL_NODE.md)
 c() { curl -sS -H 'Accept: application/json' -H "X-Device-Token: $KT" -H "Idempotency-Key: rv-$RANDOM-$(date +%s%N)" -H 'Content-Type: application/json' "$@"; }
 TOK=$(c -X POST "$API/auth/staff/login" -d '{"credentialType":"PIN","identifier":"owner1","secret":"1234"}' | jq -r .accessToken)
 A=(-H "Authorization: Bearer $TOK")
@@ -25,4 +26,4 @@ if [ -z "$SID" ]; then
   done
 fi
 echo "kdsview1 staff id: $SID"
-curl -sS -X POST "$API/auth/staff/login" -H 'Content-Type: application/json' -H "X-Device-Token: r7d_dev_kds_main_kitchen" -d '{"credentialType":"PIN","identifier":"kdsview1","secret":"1234"}' | jq -c '.staff|{displayName,permissions,facilityIds}'
+curl -sS -X POST "$API/auth/staff/login" -H 'Content-Type: application/json' -H "X-Device-Token: $KDS_DEV_TOKEN" -d '{"credentialType":"PIN","identifier":"kdsview1","secret":"1234"}' | jq -c '.staff|{displayName,permissions,facilityIds}'
