@@ -29,8 +29,9 @@ Use [Conventional Commits](https://www.conventionalcommits.org/):
    pricing or transition-validation logic. It displays routed tickets and
    _requests_ transitions; the API validates and records staff + timestamps.
 2. **Display state only.** `src/state` applies server events; it never invents
-   state the server has not confirmed (no optimistic status changes without
-   reconciliation).
+   state the server has not confirmed. Bump buttons are optimistic only as a
+   transient "pending" overlay; the store changes solely from API responses and
+   realtime events, and a rejection reverts to server truth.
 3. **Idempotency:** every mutating request sends an `Idempotency-Key` UUID
    (handled by `ApiClient`). Reuse the same key when retrying the same action.
 4. **Time:** timestamps from the API are UTC; localise only for display.

@@ -5,7 +5,7 @@ function ticket(overrides: Partial<Ticket> & Pick<Ticket, 'id'>): Ticket {
   return {
     number: overrides.id,
     stationCode: 'MAIN_KITCHEN',
-    status: 'CREATED',
+    status: 'NEW',
     createdAtUtc: '2026-09-22T10:00:00Z',
     version: 1,
     items: [{ name: 'Jollof rice', quantity: 1 }],
@@ -39,7 +39,7 @@ describe('ticket store', () => {
 
     state = applyEvent(state, {
       type: 'ticketUpserted',
-      ticket: ticket({ id: 't1', status: 'CREATED', version: 1 }),
+      ticket: ticket({ id: 't1', status: 'NEW', version: 1 }),
     });
     expect(state.tickets.get('t1')?.status).toBe('ACCEPTED');
 
@@ -51,7 +51,7 @@ describe('ticket store', () => {
     expect(state.tickets.get('t1')?.status).toBe('IN_PROGRESS');
   });
 
-  it.each(['DISPENSED', 'SERVED'] as const)('%s tickets leave the board', (status) => {
+  it.each(['DISPENSED', 'CANCELLED'] as const)('%s tickets leave the board', (status) => {
     let state = applyEvent(emptyBoard, { type: 'ticketUpserted', ticket: ticket({ id: 't1' }) });
     state = applyEvent(state, {
       type: 'ticketUpserted',
@@ -60,14 +60,14 @@ describe('ticket store', () => {
     expect(visibleTickets(state)).toEqual([]);
   });
 
-  it('does not re-add a served ticket from a late, older event', () => {
+  it('does not re-add a dispensed ticket from a late, older event', () => {
     let state = applyEvent(emptyBoard, {
       type: 'ticketUpserted',
       ticket: ticket({ id: 't1', status: 'READY', version: 4 }),
     });
     state = applyEvent(state, {
       type: 'ticketUpserted',
-      ticket: ticket({ id: 't1', status: 'SERVED', version: 5 }),
+      ticket: ticket({ id: 't1', status: 'DISPENSED', version: 5 }),
     });
     expect(state.tickets.has('t1')).toBe(false);
     // NOTE: once removed, the store has no memory of the version; after a

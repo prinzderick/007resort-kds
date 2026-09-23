@@ -12,10 +12,13 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "mock": "node mock/main.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/node": "^24.13.6",
+    "@types/ws": "^8.18.1",
     "eslint": "^10.11.0",
     "globals": "^17.12.0",
     "jsdom": "^30.1.1",
@@ -23,13 +26,15 @@
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.70.1",
     "vite": "^8.3.0",
-    "vitest": "^5.0.1"
-  },
-  "dependencies": {
-    "@microsoft/signalr": "^10.0.11"
+    "vitest": "^5.0.1",
+    "ws": "^8.21.3"
   },
   "description": "007 Resort & Spa Kitchen Display System (KDS) kiosk client - thin client of the 007 Resort & Spa API",
   "engines": {
     "node": ">=24"
+  },
+  "dependencies": {
+    "laravel-echo": "^2.5.0",
+    "pusher-js": "^8.6.0"
   }
 }

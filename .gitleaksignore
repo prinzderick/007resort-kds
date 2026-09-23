@@ -1,0 +1,2 @@
+# Deterministic DEV-ONLY seeded device token in an early draft of a helper script (see work/LOCAL_NODE.md)
+2b5b78e353fbfac0b216189d6c7611d360a15416:scripts/real-viewer-user.sh:curl-auth-header:28
