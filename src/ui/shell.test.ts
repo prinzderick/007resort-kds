@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from 'vitest';
 import { KdsApp } from '../app';
-import { harness, STATION, ticket, type Harness } from '../test/fakes';
+import { harness, session, STATION, ticket, type Harness } from '../test/fakes';
 import { mountShell, type Shell } from './shell';
 
 let shell: Shell | null = null;
@@ -47,6 +47,21 @@ describe('shell', () => {
     expect(q(root, '.board')).not.toBeNull();
     expect(q(root, '.hdr-station')?.textContent).toBe('Main Kitchen');
     expect(h.storage.station()?.id).toBe(STATION.id);
+  });
+
+  it('a session without prep_ticket.transition is view-only (no buttons, labelled)', async () => {
+    const h = harness({}, (s) => {
+      s.setStation({ ...STATION });
+    });
+    h.api.listTickets.mockResolvedValue([ticket({ id: 'a' })]);
+    h.api.login.mockResolvedValue(session({ permissions: ['prep_ticket.view'] }));
+    const { root, app } = mount(h);
+    await app.login({ credentialType: 'PIN', identifier: 'S-9001', secret: '1234' });
+    h.rt.handlers.onState('online');
+    h.rt.handlers.onSubscribed();
+    await flush();
+    expect(q(root, '.bump')?.hidden).toBe(true);
+    expect(q(root, '.hdr-staff')?.textContent ?? root.textContent).toContain('View only');
   });
 
   it('live board, then a clear RECONNECTING banner with last-known data and disabled actions', async () => {

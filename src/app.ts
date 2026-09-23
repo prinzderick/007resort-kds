@@ -567,6 +567,10 @@ export class KdsApp {
     } catch (e) {
       if (seq !== this.reloadSeq) return;
       if (e instanceof ApiError && e.status === 401) return; // handled by the client's 401 hook
+      if (e instanceof ApiError && e.status === 403 && e.code === 'permission_denied') {
+        this.handleStationForbidden();
+        return;
+      }
       // While the socket is down the 10 s poll is the retry; otherwise back off.
       if (this.state.connection !== 'online') return;
       this.set({ reloadFailed: true, synced: false });
@@ -607,7 +611,9 @@ export class KdsApp {
       return;
     }
     this.set({ connection, synced: false });
-    if (connection === 'auth-error') {
+    if (connection === 'forbidden') {
+      this.handleStationForbidden();
+    } else if (connection === 'auth-error') {
       void this.recoverAuth();
     } else if (this.pollTimer === null && this.token !== null) {
       // Socket down: keep the board fresh over REST every 10 s until it is back.
@@ -615,6 +621,26 @@ export class KdsApp {
         void this.reload();
       }, POLL_MS);
     }
+  }
+
+  /**
+   * The API said 403 for this station (channel auth or board load): this staff member has no
+   * access to it (facility scope). Not a session problem - go back to the station picker.
+   */
+  private handleStationForbidden(): void {
+    const name = this.state.station?.name ?? 'this station';
+    this.stopRealtime();
+    this.stopTimers();
+    this.deps.storage.setStation(null);
+    this.set({
+      station: null,
+      board: emptyBoard,
+      synced: false,
+      stations: null,
+      connection: 'connecting',
+    });
+    this.toast(`Your account has no access to ${name}. Choose another station.`);
+    void this.loadStations();
   }
 
   /** Channel auth was refused: try one token refresh and resubscribe, else sign out. */

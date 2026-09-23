@@ -167,11 +167,14 @@ describe('KdsRealtime subscriptions', () => {
     expect(handlers.onSiteHealth).toHaveBeenNthCalledWith(3, 'OFFLINE');
   });
 
-  it('reports auth-error when the API refuses the channel', () => {
+  it('reports auth-error (401) or forbidden (403) when the API refuses the channel', () => {
     const { echo, rt, states } = setup();
     rt.start('st-1');
-    echo.channels.get('kds.station.st-1')?.errorCb?.({ status: 403 });
+    echo.channels.get('kds.station.st-1')?.errorCb?.({ status: 401 });
     expect(states.at(-1)).toBe('auth-error');
+    rt.start('st-1');
+    echo.channels.get('kds.station.st-1')?.errorCb?.({ status: 403 });
+    expect(states.at(-1)).toBe('forbidden');
   });
 
   it('stop() leaves channels and disconnects; late events are ignored', () => {

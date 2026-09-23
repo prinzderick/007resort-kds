@@ -17,8 +17,12 @@ Architecture, API contract and decisions live in
   registered device.
 - **Station setup**: pick the station once (`GET /kds/stations`); it is remembered per device.
   Change it later from the menu (needs a signed-in staff member).
-- **Staff sign-in**: on-screen PIN pad, physical keyboard, **NFC readers as keyboard wedge** (a fast
-  burst of characters ending in Enter is read as `NFC_CARD`, slow digits as `PIN`), or password.
+- **Staff sign-in**: **staff number (or username) + PIN** on the on-screen pad or a physical
+  keyboard, **card + PIN** with an NFC reader as keyboard wedge (a fast burst of characters ending in
+  Enter is read as the card UID; the PIN is still required), or username + password. The real node
+  never accepts a bare PIN or a bare card (`identifier` is required; for `NFC_CARD` the identifier is
+  the card UID and the secret the staff PIN), see `docs/REAL_API_TEST_REPORT.md`.
+  A signed-in account without `prep_ticket.transition` is **view-only** (no buttons, labelled).
   Access tokens (about 15 min) are refreshed automatically (single-flight, rotating refresh token).
   **Auto-lock after idle** (`VITE_KDS_IDLE_LOCK_SECONDS`): the board stays visible and live but is
   read-only; tapping a button asks for sign-in.
@@ -110,6 +114,13 @@ from a different origin, the API must allow CORS for `Authorization`, `Idempoten
 property network; over plain HTTP `crypto.randomUUID` is unavailable (a fallback exists) and
 browsers restrict some APIs.
 
+Verified recipe (macOS Chrome against the real node, see `docs/REAL_API_TEST_REPORT.md`): the bundle
+can be served by any static server on the LAN, e.g. `python3 -m http.server 5191 --bind 0.0.0.0` in
+`dist/`, with a runtime `dist/config.json` such as
+`{"VITE_R007_API_BASE_URL":"http://<node-lan-ip>:8080"}`. No Reverb setting is needed: the socket
+host/port/key come from `GET /system/info` (`realtime`), which echoes the host the kiosk called.
+The node answers CORS preflights for all headers the KDS sends.
+
 ### Kiosk mode
 
 **Windows** (fixed display; create a shortcut or Task Scheduler "at log on" entry):
@@ -135,6 +146,22 @@ Browser, or Android screen pinning / a managed-device kiosk profile) pointed at 
 Each screen is enrolled once (registration code) and picks its station once; both survive reloads
 and restarts because they live in the kiosk profile's localStorage, so keep a **persistent
 `--user-data-dir`** and do not clear site data.
+
+## Testing against the real node
+
+`npm test` uses the mock. To run the same flows against the REAL local node (Laravel + Reverb):
+
+```bash
+R007_API_BASE_URL=http://127.0.0.1:8080 npm test -- real-node     # skipped when the variable is unset
+scripts/real-viewer-user.sh                                      # optional: creates view-only user kdsview1 (dev DB)
+npm run build && npx vite preview --port 5190 &                  # then, in headless Chrome + screenshots:
+node scripts/real-ui-e2e.mjs [register login live bump station isolation viewonly reconnect idle stale]
+scripts/real-order.sh [food|drink|both|pool] [qty]               # send a real order as wait1/wait2
+```
+
+The staff login endpoint is rate limited (10/min): do not run every UI scenario twice in a row.
+`reconnect` restarts the node and `stale` freezes Reverb for ~30 s, so run them only when nobody
+else is using it.
 
 ## Development
 

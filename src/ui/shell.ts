@@ -154,6 +154,9 @@ export function mountShell(root: HTMLElement, app: KdsApp, chime?: WebAudioChime
 
   const render = (s: AppState): void => {
     const active = s.auth === 'active';
+    const viewOnly =
+      active && s.permissions !== null && !s.permissions.includes('prep_ticket.transition');
+    root.dataset.viewOnly = String(viewOnly);
     root.dataset.auth = s.auth;
     root.dataset.connection = s.connection;
 
@@ -161,7 +164,7 @@ export function mountShell(root: HTMLElement, app: KdsApp, chime?: WebAudioChime
     setText(
       staff,
       active
-        ? `${s.staffName ?? 'Staff'} · Lock`
+        ? `${s.staffName ?? 'Staff'}${viewOnly ? ' · View only' : ''} · Lock`
         : s.auth === 'locked'
           ? 'Locked · Sign in'
           : 'Sign in',
@@ -197,6 +200,7 @@ export function mountShell(root: HTMLElement, app: KdsApp, chime?: WebAudioChime
         clockOffsetMs: s.clockOffsetMs,
         online: s.connection === 'online',
         locked: !active,
+        viewOnly,
         nowMs: app.nowMs(),
       });
     }

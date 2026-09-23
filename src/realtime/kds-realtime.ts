@@ -26,7 +26,9 @@ export type ConnectionState =
   /** Lost the socket; retrying forever. Board shows last-known data, read-only. */
   | 'reconnecting'
   /** The API refused the channel authorisation (token expired/revoked). */
-  | 'auth-error';
+  | 'auth-error'
+  /** Signed in, but this staff member may not read this station (403): pick another station. */
+  | 'forbidden';
 
 export type SiteStatus = 'ONLINE' | 'DEGRADED' | 'OFFLINE';
 export type DeviceCommandName = 'FORCE_LOGOUT' | 'REFRESH_STATE' | 'LOCK' | 'REVOKE';
@@ -228,7 +230,8 @@ export class KdsRealtime {
       .error((err) => {
         if (this.echo !== echo) return;
         const status = (err as { status?: unknown } | null)?.status;
-        if (status === 401 || status === 403) this.setState('auth-error');
+        if (status === 401) this.setState('auth-error');
+        else if (status === 403) this.setState('forbidden');
       });
 
     echo

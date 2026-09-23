@@ -496,4 +496,17 @@ describe('sound, settings and device commands', () => {
     expect(h.api.refresh).toHaveBeenCalledTimes(1);
     expect(h.rt.start).toHaveBeenCalledTimes(1);
   });
+
+  it('a station the account may not read (403) returns to the station picker, not to sign-in', async () => {
+    const h = harness();
+    const app = await signedIn(h);
+    h.api.listStations.mockResolvedValue([{ id: 'st-2', code: 'BAR', name: 'Pool Bar' }]);
+    h.rt.handlers.onState('forbidden');
+    await flush();
+    expect(app.getState()).toMatchObject({ auth: 'active', station: null });
+    expect(app.getState().toasts.at(-1)?.text).toMatch(/no access to/);
+    expect(h.storage.station()).toBeNull();
+    expect(h.api.refresh).not.toHaveBeenCalled();
+    expect(app.getState().stations?.[0]?.name).toBe('Pool Bar');
+  });
 });

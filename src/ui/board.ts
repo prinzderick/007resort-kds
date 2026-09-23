@@ -18,6 +18,8 @@ export interface BoardView {
   readonly online: boolean;
   /** Not signed in for actions (idle-locked): buttons prompt for sign-in. */
   readonly locked: boolean;
+  /** Signed in without `prep_ticket.transition`: the board is watch-only, no action buttons. */
+  readonly viewOnly?: boolean;
   readonly nowMs: number;
 }
 
@@ -200,7 +202,7 @@ export class Board {
     const action = nextAction(ticket.status);
     const label = action?.label ?? '';
     setText(card.button, pending === undefined ? label : 'Sending…');
-    card.button.hidden = action === null;
+    card.button.hidden = action === null || view.viewOnly === true;
     card.button.disabled = pending !== undefined || !view.online;
     card.button.dataset.locked = view.locked ? 'true' : 'false';
   }

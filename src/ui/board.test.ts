@@ -188,6 +188,15 @@ describe('Board', () => {
     expect(btn?.dataset.locked).toBe('true');
   });
 
+  it('view-only sessions get no action buttons', () => {
+    const b = new Board({ onBump: vi.fn() });
+    const t = [ticket({ id: 't' })];
+    b.update(view({ tickets: t, viewOnly: true }));
+    expect(card(b, 't').querySelector('button')?.hidden).toBe(true);
+    b.update(view({ tickets: t, viewOnly: false }));
+    expect(card(b, 't').querySelector('button')?.hidden).toBe(false);
+  });
+
   it('removes cards for tickets that left the board', () => {
     const b = new Board({ onBump: vi.fn() });
     b.update(view({ tickets: [ticket({ id: 'a' }), ticket({ id: 'b' })] }));
