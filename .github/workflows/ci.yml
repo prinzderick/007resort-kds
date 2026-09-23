@@ -29,6 +29,14 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build
+      - name: Smoke test built bundle against the mock server
+        run: |
+          MOCK_PORT=5099 MOCK_SIMULATE_SECONDS=0 npm run mock &
+          for i in $(seq 1 30); do curl -sf http://localhost:5099/api/v1/system/info >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:5099/ | grep -q '<div id="app">'
+          curl -sf http://localhost:5099/config.json | grep -q origin
+          curl -sf http://localhost:5099/api/v1/system/info | grep -q '"realtime"'
+          kill %1
       - uses: actions/upload-artifact@v4
         with:
           name: 007resort-kds-dist

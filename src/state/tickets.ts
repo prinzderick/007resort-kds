@@ -6,23 +6,27 @@
  * inventory - the API is authoritative for all of that.
  */
 
+/** PrepTicketStatus from the API contract (openapi/v1.yaml). */
 export const TICKET_STATUSES = [
-  'CREATED',
+  'NEW',
   'ACCEPTED',
   'IN_PROGRESS',
   'READY',
   'DISPENSED',
-  'SERVED',
+  'CANCELLED',
 ] as const;
 
 export type TicketStatus = (typeof TICKET_STATUSES)[number];
 
-/** Statuses after which a ticket leaves the board. */
-export const TERMINAL_STATUSES: ReadonlySet<TicketStatus> = new Set(['DISPENSED', 'SERVED']);
+/** Statuses after which a ticket leaves the board (served, or voided). */
+export const TERMINAL_STATUSES: ReadonlySet<TicketStatus> = new Set(['DISPENSED', 'CANCELLED']);
 
 export interface TicketItem {
   readonly name: string;
   readonly quantity: number;
+  /** Modifiers chosen at order time, e.g. "no onions", "extra spicy". */
+  readonly modifiers?: readonly string[];
+  /** Free-text note for this line. */
   readonly notes?: string;
 }
 
@@ -34,9 +38,20 @@ export interface Ticket {
   readonly status: TicketStatus;
   /** ISO-8601 UTC timestamp from the API. */
   readonly createdAtUtc: string;
-  /** Monotonic version from the API; used to discard stale/duplicate events. */
+  /** API `rowVersion`: monotonic per ticket; used to discard stale/duplicate events. */
   readonly version: number;
   readonly items: readonly TicketItem[];
+  /** Table / seat / tab label for service staff, e.g. "Table 12". */
+  readonly tableLabel?: string;
+  /** Human-facing order reference the ticket belongs to. */
+  readonly orderNumber?: string;
+  /** Waiter who placed the order (`waiterName`). */
+  readonly serverName?: string;
+  /** Free-text note for the whole ticket. */
+  readonly notes?: string;
+  /** Server timestamps, when known. */
+  readonly acceptedAtUtc?: string;
+  readonly readyAtUtc?: string;
 }
 
 export type TicketEvent =

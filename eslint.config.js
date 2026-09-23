@@ -22,6 +22,21 @@ export default tseslint.config(
     },
   },
   {
+    // Tests: pragmatic assertions are fine.
+    files: ['**/*.test.ts', 'src/test/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+    },
+  },
+  {
+    // Node-side mock server and CLI.
+    files: ['mock/**/*.ts'],
+    languageOptions: { globals: globals.node },
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['eslint.config.js'],
     ...tseslint.configs.disableTypeChecked,
   },

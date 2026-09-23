@@ -1,115 +1,175 @@
 # 007resort-kds
 
-Kitchen Display System (KDS) / dispensing client for the **007 Resort & Spa Integrated
-Facility Operations Platform**.
+Kitchen / bar display (KDS) client for the **007 Resort & Spa Integrated Facility Operations
+Platform**: a static, framework-free **Vite + TypeScript** browser app that runs full-screen (kiosk)
+on each prep station and talks to the Laravel API (`/api/v1`) over REST plus **Laravel Reverb**
+(Pusher protocol) through `laravel-echo` + `pusher-js`.
 
-> Status: **Phase 0 - scaffolding only.** The board renders a placeholder;
-> real-time wiring and actions arrive in Phase 1.
+Architecture, API contract and decisions live in
+[prinzderick/007resort-docs](https://github.com/prinzderick/007resort-docs)
+(`architecture/08, 13, 15`, `adr/0006`, `adr/0012`, `api/openapi/v1.yaml`, `api/realtime.md`).
 
-Architecture, API contracts and decisions live in
-[prinzderick/007resort-docs](https://github.com/prinzderick/007resort-docs).
+## What it does
 
-## Decision (pending architecture review)
+- **Device enrolment** (once per screen): the IT admin issues a one-time registration code;
+  `POST /devices/register` (`kind: KDS_SCREEN`) returns a `deviceToken`, kept in this browser's
+  localStorage and sent as `X-Device-Token` on every request. PIN / NFC logins only work from a
+  registered device.
+- **Station setup**: pick the station once (`GET /kds/stations`); it is remembered per device.
+  Change it later from the menu (needs a signed-in staff member).
+- **Staff sign-in**: on-screen PIN pad, physical keyboard, **NFC readers as keyboard wedge** (a fast
+  burst of characters ending in Enter is read as `NFC_CARD`, slow digits as `PIN`), or password.
+  Access tokens (about 15 min) are refreshed automatically (single-flight, rotating refresh token).
+  **Auto-lock after idle** (`VITE_KDS_IDLE_LOCK_SECONDS`): the board stays visible and live but is
+  read-only; tapping a button asks for sign-in.
+- **Board**: columns NEW / IN PROGRESS (accepted + in progress) / READY; large touch targets;
+  table, order number, waiter, items, modifiers/notes; **elapsed-time colouring** (amber/red at
+  configurable thresholds, per device via the menu or build/runtime config; timers use the server
+  clock via `/system/info`); **chime on new tickets** (WebAudio, mutable).
+- **Bump actions**: `NEW -> ACCEPTED -> IN_PROGRESS -> READY -> DISPENSED` via
+  `POST /prep-tickets/{id}/transition {to}` with `Idempotency-Key` and `If-Match`. The card shows an
+  optimistic "pending" state; the API is authoritative: on rejection (e.g. `order_state_invalid`,
+  `concurrency_conflict`) the reason is shown, the card reverts and the board is reloaded.
+- **Realtime + recovery** (per `api/realtime.md`): private channels `kds.station.{id}`,
+  `site.status`, `device.{id}`; events deduped by `eventId`; **a full REST reload on every
+  (re)subscription**; reconnect with exponential backoff + jitter (1 s to 30 s, forever); stale-socket
+  watchdog (75 s without `site.health`); REST polling every 10 s while the socket is down.
+- **Offline** (`architecture/13`): read-only last-known board (also cached across page reloads), a
+  clear red **RECONNECTING** banner, actions disabled until live updates are back. The KDS never
+  queues changes.
+- No business logic: no pricing, inventory, or transition validation on the client.
 
-A **browser-based kiosk client** built with **Vite + TypeScript (strict)** and
-**no UI framework**, running full-screen on each KDS station. Real-time updates
-come from a **SignalR** hub on the 007 Resort & Spa API (`@microsoft/signalr`). This
-choice is provisional until the architecture review is recorded in 007resort-docs.
+## Run it without the backend (mock server)
 
-## Stations
-
-| Code                 | Station            |
-| -------------------- | ------------------ |
-| `MAIN_KITCHEN`       | Main Kitchen       |
-| `RESTAURANT_COUNTER` | Restaurant Counter |
-| `POOL_BAR`           | Pool Bar           |
-| `BUSH_BAR`           | Bush Bar           |
-
-Each screen is configured with one station code. The API routes tickets to
-stations; the KDS only displays what it is sent.
-
-## What the KDS does (and does not do)
-
-- Displays tickets routed to its station.
-- **Requests** status transitions via the API:
-  `CREATED -> ACCEPTED -> IN_PROGRESS -> READY -> DISPENSED / SERVED`.
-- The API is **authoritative**: it validates each transition and records the
-  staff member and timestamps. The board updates only from server events.
-- **No** payment, inventory or pricing logic, and no local validation of
-  transitions.
-- Every mutating request carries an `Idempotency-Key` header (UUID).
-
-## Real-time
-
-`src/realtime/hub.ts` builds a SignalR connection to `/hubs/kds` (placeholder
-path) with automatic reconnect that **never gives up** (backs off to 30 s).
-After each reconnect the board must re-fetch a snapshot from the API, since
-events may have been missed. `src/state/tickets.ts` is a pure reducer that
-applies server events to the local display model (upserts are idempotent by
-ticket `version`; `DISPENSED`/`SERVED` tickets leave the board; ordered by
-created time).
-
-## Layout
-
-```
-src/
-  main.ts             entry: load config, render board
-  config.ts           VITE_* env parsing
-  api/client.ts       fetch wrapper (+ Idempotency-Key on mutations)
-  api/idempotency.ts  UUID v4 (falls back when randomUUID is unavailable)
-  realtime/hub.ts     SignalR connection factory
-  state/tickets.ts    display-state reducer
-  ui/board.ts         board rendering (placeholder)
-  **/*.test.ts        vitest tests
+```bash
+npm ci
+npm run build          # optional: lets the mock also serve the UI
+npm run mock           # API + Pusher socket + UI on http://localhost:5080
 ```
 
-## Setup / run / test
+Open <http://localhost:5080>. Demo data:
+
+| What              | Value                                                                |
+| ----------------- | -------------------------------------------------------------------- |
+| Registration code | `KDS-1234` (reusable in the mock)                                    |
+| Staff             | PIN `1234` (Chef Ada, can bump), PIN `5678` (view only)              |
+| NFC card          | `04A1B2C3` (type it fast + Enter, or via a wedge reader)             |
+| Password          | user `kds`, password `kds-pass`                                      |
+| Stations          | Main Kitchen, Restaurant Counter, Pool Bar, Bush Bar (seeded boards) |
+
+The mock follows the contract (`Idempotency-Key`, `If-Match`/ETag, single-use refresh tokens,
+private-channel HMAC auth, `site.health` keep-alive) and creates a ticket every 25 s. Env:
+`MOCK_PORT` (5080), `MOCK_HOST`, `MOCK_SIMULATE_SECONDS` (25, 0 = off), `MOCK_REVERB_PORT`
+(optional second socket port), `MOCK_STATIC_DIR` (`dist`). Demo controls (POST):
+
+```bash
+curl -X POST localhost:5080/mock/tickets                 # new ticket at a random station
+curl -X POST localhost:5080/mock/drop-sockets            # kill sockets -> KDS reconnects + reloads
+curl -X POST 'localhost:5080/mock/outage?seconds=15'     # API + socket down: RECONNECTING banner
+curl -X POST localhost:5080/mock/expire-tokens           # forces a transparent token refresh
+curl -X POST localhost:5080/mock/device-command -d '{"command":"LOCK"}'   # FORCE_LOGOUT | REFRESH_STATE | REVOKE
+curl -X POST localhost:5080/mock/reset                   # reseed
+```
+
+For frontend development against the mock: `npm run mock` in one terminal, `npm run dev` in
+another with `.env.local` copied from `.env.example` (it already points at the mock).
+
+## Configuration
+
+Compile-time `VITE_*` variables (see `.env.example`) **or** a runtime `config.json` served next to
+`index.html` with the same keys (e.g. `{"VITE_KDS_WARN_MINUTES": "4"}`), which lets one static build
+serve both the Local and Cloud nodes. None of these values are secret.
+
+| Variable                     | Default                 | Description                                                |
+| ---------------------------- | ----------------------- | ---------------------------------------------------------- |
+| `VITE_R007_API_BASE_URL`     | `http://localhost:5080` | API base (no `/api/v1`). `origin` = the page's own origin. |
+| `VITE_R007_REVERB_HOST`      | API host                | Reverb host.                                               |
+| `VITE_R007_REVERB_PORT`      | `8081`                  | Reverb port.                                               |
+| `VITE_R007_REVERB_SCHEME`    | from API URL            | `http` or `https` (`https` uses `wss`).                    |
+| `VITE_R007_REVERB_KEY`       | `r007-local-key`        | Public Reverb app key. **Never** the secret.               |
+| `VITE_KDS_STATION_CODE`      | _(empty)_               | Optional preset; normally chosen on the setup screen.      |
+| `VITE_KDS_WARN_MINUTES`      | `5`                     | Ticket turns amber.                                        |
+| `VITE_KDS_LATE_MINUTES`      | `10`                    | Ticket turns red.                                          |
+| `VITE_KDS_IDLE_LOCK_SECONDS` | `120`                   | Idle auto-lock (0 = never).                                |
+| `VITE_KDS_RESYNC_SECONDS`    | `300`                   | Safety-net reload while connected (0 = off).               |
+
+If none of the four `REVERB_*` values is set, the Reverb host/port/scheme/key the node advertises in
+`GET /api/v1/system/info` (`realtime`) are used.
+
+## Deployment (static bundle on the local node)
+
+```bash
+npm ci && npm run build          # -> dist/ (relative asset URLs; serve from / or any sub-path)
+```
+
+Copy `dist/` to the local node's web server (nginx/Caddy/IIS or the Laravel `public/` tree, e.g.
+`public/kds/`). Recommended: serve it on the **same origin** as the API (proxy `/api` and the Reverb
+socket) and set `VITE_R007_API_BASE_URL=origin` in `config.json`; this avoids CORS. If it is served
+from a different origin, the API must allow CORS for `Authorization`, `Idempotency-Key`,
+`If-Match`, `X-Device-Token`, `X-Correlation-Id` and expose `ETag`. Prefer HTTPS/WSS on the
+property network; over plain HTTP `crypto.randomUUID` is unavailable (a fallback exists) and
+browsers restrict some APIs.
+
+### Kiosk mode
+
+**Windows** (fixed display; create a shortcut or Task Scheduler "at log on" entry):
+
+```bat
+"C:\Program Files\Google\Chrome\Application\chrome.exe" --kiosk --noerrdialogs ^
+  --disable-session-crashed-bubble --disable-infobars --no-first-run ^
+  --autoplay-policy=no-user-gesture-required --disable-pinch --overscroll-history-navigation=0 ^
+  --user-data-dir=C:\kds-profile http://kds-server.local/kds/
+```
+
+Use Edge (`msedge.exe --kiosk <url> --edge-kiosk-type=fullscreen`) if Chrome is not installed.
+Put the shortcut in `shell:startup`, disable sleep and screen saver, and set Windows to auto-login
+the kiosk user. `--autoplay-policy=...` lets the new-ticket chime play without a first tap.
+
+**Android tablets/TV boxes**: Chrome cannot run `--kiosk`; use a kiosk launcher (Fully Kiosk
+Browser, or Android screen pinning / a managed-device kiosk profile) pointed at the URL, with
+"keep screen on" and autoplay-with-sound enabled.
+
+**Linux/Raspberry Pi**: `chromium --kiosk --noerrdialogs --disable-session-crashed-bubble
+--autoplay-policy=no-user-gesture-required http://kds-server.local/kds/`.
+
+Each screen is enrolled once (registration code) and picks its station once; both survive reloads
+and restarts because they live in the kiosk profile's localStorage, so keep a **persistent
+`--user-data-dir`** and do not clear site data.
+
+## Development
 
 Requirements: Node 24+.
 
 ```bash
 npm ci
-cp .env.example .env.local   # then set the station code
-npm run dev                  # http://localhost:5173
-
-npm run typecheck
-npm run lint
-npm test
-npm run build                # static files in dist/
+npm run dev            # http://localhost:5173
+npm run typecheck && npm run lint && npm run format:check
+npm test               # vitest (jsdom for UI, node for the mock integration tests)
+npm run build          # static files in dist/
 ```
 
-CI (`.github/workflows/ci.yml`) runs typecheck, lint, format check, tests and
-build on Node 24, plus a gitleaks secret scan.
+Layout:
 
-## Configuration
+```
+src/
+  main.ts                 entry: config, wiring
+  app.ts                  controller: enrolment, sessions, reload, optimistic bump, offline
+  config.ts               VITE_* + runtime config.json
+  api/                    client (fetch, Idempotency-Key, If-Match, refresh), dto mapping
+  realtime/               Echo/Reverb transport, backoff, watchdog, dedupe
+  state/                  tickets (pure reducer), elapsed (ageing), transitions (button hints)
+  auth/                   idle-lock timer, NFC keyboard-wedge classifier
+  device/storage.ts       per-device settings, board cache
+  ui/                     board (keyed DOM), login, setup, register, shell, sound, css
+mock/                     mock API + Pusher-protocol server (`npm run mock`)
+```
 
-| Variable                 | Default                 | Description                                   |
-| ------------------------ | ----------------------- | --------------------------------------------- |
-| `VITE_R007_API_BASE_URL` | `http://localhost:5080` | 007 Resort & Spa API base URL (no `/api/v1`). |
-| `VITE_KDS_STATION_CODE`  | _(empty)_               | Station code; empty = not configured.         |
+`src/integration.test.ts` runs the real client, real Laravel Echo and pusher-js against the mock
+over a real WebSocket (live tickets, bump, illegal transition, dropped socket -> full reload,
+outage, token refresh, device command).
 
-`VITE_*` values are compiled into the bundle - **never put secrets in them**.
-Kiosk authentication (device credentials / tokens) is issued by the API and is
-pending design.
-
-## Kiosk deployment notes (draft)
-
-- Serve `dist/` from the property server (or the API host) and open it in a
-  browser in kiosk mode, e.g. `chromium --kiosk --noerrdialogs
---disable-session-crashed-bubble <url>`, auto-starting on boot.
-- Prefer **HTTPS** on the property network. `crypto.randomUUID` needs a secure
-  context; a fallback exists, but SignalR, service workers and other APIs
-  behave best over HTTPS.
-- Disable screen sleep / screensaver; auto-reload on crash.
-- One build per environment; station code per screen (build-time today; may
-  move to API device registration after review).
-
-## Staff identification (placeholder)
-
-NFC readers will be attached as **keyboard-wedge** devices: a tap "types" the
-card UID followed by Enter. The KDS will capture that input and send it to the
-API with the transition request; the **API** resolves the staff member and
-records it. Not implemented in Phase 0.
+CI (`.github/workflows/ci.yml`) runs typecheck, lint, format check, tests, build, a mock-server
+smoke test of the built bundle, and a gitleaks secret scan on Node 24.
 
 ## Conventions
 
